@@ -1,3 +1,35 @@
+# 3.3.2 (2019-01-26)
+
+Bug Fixes:
+- Fix `pip-sync` with a temporary requirement file on Windows
+([#723](https://github.com/jazzband/pip-tools/pull/723)). Thanks @atugushev
+- Fix `pip-sync` to prevent uninstall of stdlib and dev packages
+([#718](https://github.com/jazzband/pip-tools/pull/718)). Thanks @atugushev
+
+# 3.3.1 (2019-01-24)
+
+- Re-release of 3.3.0 after fixing the deployment pipeline
+([#716](https://github.com/jazzband/pip-tools/issues/716)). Thanks @atugushev
+
+# 3.3.0 (2019-01-23)
+(Unreleased - Deployment pipeline issue, see 3.3.1)
+
+Features:
+- Added support of `pip` 19.0
+([#715](https://github.com/jazzband/pip-tools/pull/715)). Thanks @atugushev
+- Add `--allow-unsafe` to update instructions in the generated `requirements.txt`
+([#708](https://github.com/jazzband/pip-tools/pull/708)). Thanks @richafrank
+
+Bug Fixes:
+- Fix `pip-sync` to check hashes
+([#706](https://github.com/jazzband/pip-tools/pull/706)). Thanks @atugushev
+
+# 3.2.0 (2018-12-18)
+
+Features:
+- Apply version constraints specified with package upgrade option (`-P, --upgrade-package`)
+([#694](https://github.com/jazzband/pip-tools/pull/694)). Thanks @richafrank
+
 # 3.1.0 (2018-10-05)
 
 Features:

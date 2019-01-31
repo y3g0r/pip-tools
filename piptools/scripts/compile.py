@@ -31,7 +31,8 @@ class PipCommand(Command):
 
 @click.command()
 @click.version_option()
-@click.option('-v', '--verbose', is_flag=True, help="Show more output")
+@click.option('-v', '--verbose', count=True, help="Show more output")
+@click.option('-q', '--quiet', count=True, help="Give less output")
 @click.option('-n', '--dry-run', is_flag=True, help="Only show what would happen, don't change anything")
 @click.option('-p', '--pre', is_flag=True, default=None, help="Allow resolving to prereleases (default is not)")
 @click.option('-r', '--rebuild', is_flag=True, help="Clear any caches upfront, rebuild from scratch")
@@ -65,12 +66,12 @@ class PipCommand(Command):
 @click.option('--max-rounds', default=10,
               help="Maximum number of rounds before resolving the requirements aborts.")
 @click.argument('src_files', nargs=-1, type=click.Path(exists=True, allow_dash=True))
-def cli(verbose, dry_run, pre, rebuild, find_links, index_url, extra_index_url,
+def cli(verbose, quiet, dry_run, pre, rebuild, find_links, index_url, extra_index_url,
         cert, client_cert, trusted_host, header, index, emit_trusted_host, annotate,
         upgrade, upgrade_packages, output_file, allow_unsafe, generate_hashes,
         src_files, max_rounds):
     """Compiles requirements.txt from requirements.in specs."""
-    log.verbose = verbose
+    log.verbosity = verbose - quiet
 
     if len(src_files) == 0:
         if os.path.exists(DEFAULT_REQUIREMENTS_FILE):
@@ -129,15 +130,18 @@ def cli(verbose, dry_run, pre, rebuild, find_links, index_url, extra_index_url,
     session = pip_command._build_session(pip_options)
     repository = PyPIRepository(pip_options, session)
 
+    upgrade_install_reqs = {}
     # Proxy with a LocalRequirementsRepository if --upgrade is not specified
     # (= default invocation)
     if not upgrade and os.path.exists(dst_file):
         ireqs = parse_requirements(dst_file, finder=repository.finder, session=repository.session, options=pip_options)
         # Exclude packages from --upgrade-package/-P from the existing pins: We want to upgrade.
-        upgrade_pkgs_key = {key_from_req(install_req_from_line(pkg).req) for pkg in upgrade_packages}
+        upgrade_reqs_gen = (install_req_from_line(pkg) for pkg in upgrade_packages)
+        upgrade_install_reqs = {key_from_req(install_req.req): install_req for install_req in upgrade_reqs_gen}
+
         existing_pins = {key_from_req(ireq.req): ireq
                          for ireq in ireqs
-                         if is_pinned_requirement(ireq) and key_from_req(ireq.req) not in upgrade_pkgs_key}
+                         if is_pinned_requirement(ireq) and key_from_req(ireq.req) not in upgrade_install_reqs}
         repository = LocalRequirementsRepository(existing_pins, repository)
 
     log.debug('Using indexes:')
@@ -177,6 +181,8 @@ def cli(verbose, dry_run, pre, rebuild, find_links, index_url, extra_index_url,
         else:
             constraints.extend(parse_requirements(
                 src_file, finder=repository.finder, session=repository.session, options=pip_options))
+
+    constraints.extend(upgrade_install_reqs.values())
 
     # Filter out pip environment markers which do not match (PEP496)
     constraints = [req for req in constraints
@@ -236,15 +242,15 @@ def cli(verbose, dry_run, pre, rebuild, find_links, index_url, extra_index_url,
                           default_index_url=repository.DEFAULT_INDEX_URL,
                           index_urls=repository.finder.index_urls,
                           trusted_hosts=pip_options.trusted_hosts,
-                          format_control=repository.finder.format_control)
+                          format_control=repository.finder.format_control,
+                          allow_unsafe=allow_unsafe)
     writer.write(results=results,
                  unsafe_requirements=resolver.unsafe_constraints,
                  reverse_dependencies=reverse_dependencies,
                  primary_packages={key_from_req(ireq.req) for ireq in constraints if not ireq.constraint},
                  markers={key_from_req(ireq.req): ireq.markers
                           for ireq in constraints if ireq.markers},
-                 hashes=hashes,
-                 allow_unsafe=allow_unsafe)
+                 hashes=hashes)
 
     if dry_run:
         log.warning('Dry-run, so nothing updated.')
